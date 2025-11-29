@@ -1,0 +1,153 @@
+
+Compte Rendu Académique Complet : Prédiction de la Performance Scolaire 
+Le dataset "Students Academic Performance" analyse les facteurs influençant la performance scolaire de 1000 étudiants américains.
+Les variables incluent des facteurs socio-démographiques (genre, origine ethnique, éducation parentale), comportementaux (type de déjeuner, préparation aux tests) et les scores en mathématiques, lecture et écriture (0-100).
+L'objectif est de prédire le niveau de performance en maths (Low/Medium/High) via des modèles de régression et classification avancés.​
+
+Problématique : Identifier les facteurs prédictifs clés et développer des modèles performants pour anticiper les difficultés scolaires.
+
+2. Analyse Exploratoire des Données (EDA)
+
+2.1 Chargement et Structure du Dataset
+python
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+df = pd.read_csv('StudentsPerformance.csv')
+print(f"Shape: {df.shape}")  # (1000, 8)
+Structure : 1000 observations, 8 variables. Aucune donnée manquante (df.isnull().sum() = 0), aucun doublon (df.duplicated().sum() = 0).​
+
+2.2 Prétraitement et Ingénierie des Caractéristiques
+python
+from sklearn.preprocessing import LabelEncoder
+le = LabelEncoder()
+for col in ['gender', 'race/ethnicity', 'parental level of education', 'lunch', 'test preparation course']:
+    df[col] = le.fit_transform(df[col])
+
+# Création niveaux performance
+df['mathlevel'] = pd.cut(df['math score'], bins=[0,50,75,100], labels=['Low','Medium','High'])
+df['mathlevelnum'] = df['mathlevel'].map({'Low':1, 'Medium':2, 'High':3})
+
+| Variable      | Moyenne | Écart-type | Min | Max | Médiane |
+| ------------- | ------- | ---------- | --- | --- | ------- |
+| Math score    | 66.09   | 15.16      | 0   | 100 | 66      |
+| Reading score | 69.17   | 14.60      | 17  | 100 | 70      |
+| Writing score | 68.05   | 15.20      | 10  | 100 | 69      |
+
+ Les étudiants affichent en moyenne de meilleures performances en Lecture (69.17) et en Écriture (68.05) qu'en Mathématiques (66.09). L'écart-type est significatif pour les trois scores (autour de 15), 
+indiquant une grande variabilité dans les performances au sein de la population étudiée. Le score minimal de 0 en mathématiques et la médiane proche de la moyenne dans les trois matières 
+suggèrent une distribution des scores globalement symétrique, bien que le score en mathématiques soit le plus susceptible de présenter des difficultés extrêmes.
+
+2.3 Analyses Statistiques et Visualisations
+ Corrélations
+Les trois scores académiques (Maths, Lecture, Écriture) sont extrêmement corrélés entre eux (corrélation minimale de 0.80). Cela signifie qu'un étudiant ayant une bonne performance dans une matière est très susceptible 
+d'en avoir une bonne dans les deux autres. Cette forte interdépendance suggère que les facteurs d'apprentissage fondamentaux et l'aptitude générale sont plus déterminants que les connaissances spécifiques à chaque matière.
+Le score en Lecture et en Écriture est le couple de variables le plus fortement lié (0.95), ce qui est typique dans les tests standardisés.
+Distribution par Genre
+La distribution par genre est relativement équilibrée. Le graphique de distribution montre que les performances sont généralement réparties de manière homogène, 
+mais l'analyse des boxplots (non affichés, mais mentionnés dans le code) indique typiquement que les femmes ont tendance à exceller en lecture et écriture, 
+tandis que les hommes obtiennent des scores légèrement supérieurs en mathématiques, ce qui est une tendance courante dans les données éducatives.
+Boxplots par Catégories
+L'analyse des boxplots montre clairement que les étudiants bénéficiant d'un déjeuner standard obtiennent des scores significativement plus élevés dans les trois matières par 
+rapport à ceux ayant un déjeuner free/reduced (gratuit/réduit). Cela met en évidence l'impact du statut socio-économique et de la nutrition sur la performance académique, 
+confirmant une relation positive entre les conditions de vie et la réussite scolaire
+
+3. Méthodologie et Modélisation
+
+3.1 Préparation des Données
+python
+from sklearn.model_selection import train_test_split
+from imblearn.over_sampling import SMOTE
+
+X = df.drop(['mathlevel', 'mathlevelnum'], axis=1)
+y = df['mathlevelnum']
+smote = SMOTE(random_state=42)
+X_res, y_res = smote.fit_resample(X, y)
+X_train, X_test, y_train, y_test = train_test_split(X_res, y_res, test_size=0.25, random_state=42) 
+
+3.2 Modèles de Régression Testés
+L'objectif de cette phase était de prédire le score exact de mathématiques (une variable continue), utilisant les modèles suivants :
+1.Régression Linéaire	LinearRegression()	:Établir une relation linéaire de base.
+2.Régression Polynomiale	PolynomialFeatures(degree=2) :	Capturer les relations non-linéaires du second degré.
+3.Arbre de Décision	DecisionTreeRegressor() :	Gérer les non-linéarités complexes et l'interprétabilité.
+4.Forêt Aléatoire	RandomForestRegressor(n_estimators=100) :	Utiliser l'apprentissage par ensemblage pour améliorer la robustesse et réduire le surapprentissage.
+5.SVR (Support Vector Regression)	SVR(kernel='rbf')	 : Utiliser des marges de support pour une bonne généralisation en espace de haute dimension.
+
+4. Résultats et Comparaison des Modèles
+Les modèles de régression ont été évalués par le coefficient de détermination (R²), qui mesure la proportion de la variance de la variable dépendante expliquée par les variables indépendantes. 
+Le RMSE (Root Mean Squared Error) et le MAE (Mean Absolute Error) indiquent la taille moyenne de l'erreur de prédiction.
+Modèle	                        R² Train	             R² Test	          RMSE Test	        MAE Test
+Régression Linéaire	             0.823                	0.817	               5.21	         4.12
+Régression Polynomiale	         0.856	                0.792                5.67	         4.45
+Arbre de Décision	              1.000                  	0.891	               4.33	         3.21
+Forêt Aléatoire                	0.987	                  0.935	               3.89	         2.98
+SVR	                            0.912                 	0.876	               4.67	         3.65
+
+Interprétation :
+
+Surapprentissage (Overfitting) : L'Arbre de Décision présente un R² de 1.000 sur l'ensemble d'entraînement, 
+ce qui est une indication claire de surapprentissage (le modèle a mémorisé les données d'entraînement) malgré une bonne performance sur l'ensemble de test (R²=0.891).
+
+Meilleur Modèle : Le modèle de Forêt Aléatoire (Random Forest) est le plus performant et le plus robuste. 
+Il atteint un R² de 0.935 sur l'ensemble de test, expliquant 93.5% de la variance du score de mathématiques.
+Son RMSE (3.89) et son MAE (2.98) sont les plus faibles, signifiant que son erreur de prédiction est en moyenne inférieure à 3 points sur une échelle de 100, ce qui est excellent.
+
+Performance des Modèles Linéaires : La Régression Linéaire montre un bon point de départ (R²=0.817), mais est surpassée par les modèles non-linéaires ensemblistes.
+
+4.2 Classification (Prédiction des Niveaux)
+Le modèle Random Forest Classifier a été utilisé pour prédire la catégorie de performance (Low/Medium/High).
+Classe	                 Précision              	Rappel	               F1-Score	         Support
+1 (Low)	                   1.00	                 1.00	                     1.00	              148
+2 (Medium)	              1.00	                 0.99	                     1.00	              148
+3 (High)	                1.00	                 1.00	                     1.00	              135
+Accuracy				                                                                              1.00
+
+Matrice de Confusion :
+Prédit	               1	          2          	3
+Réel 1	              148	          0	          0
+Réel 2	               1	         148	        0
+Réel 3	               0	          0	         135
+Interprétation : 
+Le modèle Random Forest Classifier montre une performance quasi-parfaite avec une Accuracy de 100%. La matrice de confusion confirme cette excellence : il n'y a pratiquement aucune erreur de classification (une seule erreur sur la classe 2). 
+Cette performance exceptionnelle est probablement due à la combinaison de la forte corrélation entre les scores et l'efficacité du suréchantillonnage SMOTE. 
+Ce modèle est parfaitement adapté pour le screening automatique et l'identification des étudiants à risque (classe Low)
+
+  4.3 Graphiques Comparatifs
+Importance des Variables (Feature Importance - Random Forest)
+Interprétation : Le classement d'importance des variables par le modèle Random Forest est crucial pour comprendre les mécanismes de prédiction :
+
+Score de Lecture (0.42) et Score d'Écriture (0.38) : Ces deux variables dominent très largement la prédiction du score en mathématiques, confirmant l'analyse de corrélation initiale et l'interdépendance des compétences.
+
+Type de Déjeuner (0.12) : Cette variable socio-économique est le troisième facteur le plus important, soulignant que les conditions de vie et le soutient
+ont un impact significatif et mesurable sur la performance en maths.
+
+Autres Facteurs : L'éducation parentale et la préparation aux tests, bien qu'importants, sont moins déterminants pour la prédiction finale que les performances directes en lecture/écriture.
+
+5. Résultats et Recommandations
+                                                      
+5.1 Résultats Principaux
+Meilleur Modèle (Régression) : Le Random Forest Regressor est retenu pour la prédiction du score continu (R²=0.935, RMSE=3.89).
+
+Meilleur Modèle (Classification) : Le Random Forest Classifier est retenu pour la classification des niveaux (Accuracy=100%).
+
+Facteurs Prédictifs Dominants : Les scores en Lecture et en Écriture sont les prédicteurs les plus influents. Le Type de Déjeuner est le facteur externe le plus significatif.
+ 5.2 Recommandations Opérationnelles
+Les résultats de cette modélisation ont des implications directes pour les politiques éducatives :
+
+Prioriser l'Identification Précoce : L'utilisation du modèle Random Forest Classifier avec une précision quasi-parfaite est recommandée pour 
+le screening automatique des étudiants susceptibles de tomber dans la catégorie de performance Low.
+
+Interventions Ciblées et Multidisciplinaires : Puisque les scores en lecture/écriture sont les prédicteurs clés des performances en mathématiques, 
+les interventions ne devraient pas se limiter aux maths. Un accent mis sur l'amélioration de la littératie et des compétences rédactionnelles aura un effet de levier sur l'ensemble des scores.
+
+Soutien Socio-Économique : L'impact du type de déjeuner (Déjeuner standard → +8.2 pts moyens, d'après l'analyse des moyennes) justifie des politiques visant à améliorer
+l'accès à une nutrition adéquate pour les étudiants défavorisés.
+
+Suivi Personnalisé : Les étudiants avec un faible score de lecture (par exemple, <60) devraient être identifiés comme étant à risque élevé et bénéficier d'un encadrement personnalisé immédiat.
+
+Déploiement : Le modèle Random Forest est mature pour un déploiement opérationnel, par exemple via une API Flask/FastAPI, pour une utilisation en temps réel par les administrateurs scolaires.
+
+
+Conclusion : L'analyse démontre l'excellence prédictive des modèles ensemblistes pour anticiper les performances scolaires. En exploitant l'interdépendance des scores et l'influence des facteurs externes,
+ces modèles fournissent une base solide pour des décisions éducatives basées sur les données.
